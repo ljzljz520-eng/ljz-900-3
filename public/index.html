@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>食堂后厨整改台</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="hero">
+  <div class="logo-big">🍳</div>
+  <h1>食堂后厨整改台</h1>
+  <p>拍照建单 · 扫码整改 · 核验闭环 · 数据汇总</p>
+</div>
+
+<div class="entry-cards">
+  <div class="entry-card" onclick="location.href='/admin'">
+    <div class="eicon">📋</div>
+    <h3>管理员 / 负责人入口</h3>
+    <p>检查上传问题照片、生成编号二维码<br>查看扣分与整改完成率</p>
+  </div>
+  <div class="entry-card" onclick="scanTip()">
+    <div class="eicon">📷</div>
+    <h3>后厨员工整改</h3>
+    <p>请使用微信/相机扫描<br>灶台或设备上的整改二维码</p>
+  </div>
+</div>
+
+<ul class="feat">
+  <li><span class="f">🏷️</span><div><b>自动编号</b><br><span class="muted">检查单按 ZG-年月日-序号 生成唯一编号</span></div></li>
+  <li><span class="f">🔗</span><div><b>扫码整改</b><br><span class="muted">一单一码，链接 48 小时有效，过期可一键续期</span></div></li>
+  <li><span class="f">🖼️</span><div><b>图片全程留痕</b><br><span class="muted">删除、重新上传均有明确提示，杜绝误操作</span></div></li>
+  <li><span class="f">📊</span><div><b>负责人看板</b><br><span class="muted">扣分统计、整改状态、完成率一目了然</span></div></li>
+</ul>
+
+<script src="/js/common.js"></script>
+<script>
+function scanTip(){
+  Toast.show('请用微信扫一扫，扫描张贴的整改二维码进入整改页', 'info', 3200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>后厨整改 - 食堂后厨整改台</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="empty" id="loadingBox">
+    <div class="icon">⏳</div><p>正在加载整改单…</p>
+  </div>
+</div>
+
+<div id="staffTpl" class="hidden">
+  <div class="staff-head">
+    <div class="no" data-bind="no"></div>
+    <h2 data-bind="title"></h2>
+    <div>
+      <span class="tag area-tag" data-bind="area" style="background:rgba(255,255,255,.2);color:#fff"></span>
+      <span class="tag" data-bind="statusTag" style="background:rgba(255,255,255,.2);color:#fff"></span>
+      <span class="score-pill" style="color:#ffe082" data-bind="scoreText"></span>
+    </div>
+    <div class="countdown" id="countdown"></div>
+  </div>
+
+  <div class="wrap" style="padding-top:14px">
+    <!-- 驳回提示 -->
+    <div class="reject-box hidden" id="rejectBox">
+      <b>↩️ 核验未通过，请重新整改</b><br><span id="rejectReason"></span>
+    </div>
+
+    <div class="card">
+      <h2>🔍 检查问题</h2>
+      <div class="desc" data-bind="description"></div>
+      <div class="muted" data-bind="inspector"></div>
+      <div class="section-label">问题照片（灶台 / 冰箱 / 地面等）</div>
+      <div class="photos" id="problemPhotos"></div>
+    </div>
+
+    <div class="card">
+      <h2>🧹 提交整改照片</h2>
+      <div id="formArea">
+        <div class="field">
+          <label>整改人姓名 <span class="req">*</span></label>
+          <input class="input" id="rectifier" placeholder="请输入姓名，便于负责人核验" maxlength="20">
+        </div>
+        <div class="field">
+          <label>整改说明（选填）</label>
+          <textarea class="textarea" id="note" placeholder="如：已清洗灶台油污、已疏通排水…" maxlength="200"></textarea>
+        </div>
+        <div class="section-label">整改后照片（最多 6 张）</div>
+        <div class="photos" id="rectifyPhotos"></div>
+        <button class="btn btn-primary btn-block" id="submitBtn" style="margin-top:10px">📤 提交整改，等待核验</button>
+        <p class="muted" style="margin-top:8px;text-align:center">提交后仍可在链接有效期内删除重传；核验通过后不可修改。</p>
+      </div>
+      <div id="approvedBox" class="hidden">
+        <div style="text-align:center;padding:14px 0">
+          <div style="font-size:46px">✅</div>
+          <h3 style="margin:6px 0">该问题已核验通过</h3>
+          <p class="muted" data-bind="approvedAt"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+</div>
+
+<!-- 过期/无效专用页 -->
+<div id="expiredTpl" class="hidden">
+  <div class="wrap" style="max-width:440px">
+    <div class="card" style="text-align:center;margin-top:40px;padding:36px 22px">
+      <div style="font-size:54px" id="errIcon">⌛</div>
+      <h2 id="errTitle" style="justify-content:center;margin:10px 0">整改链接已过期</h2>
+      <p id="errMsg" style="color:#4b5563;font-size:14px"></p>
+      <div class="deadline-expired" id="errMeta"></div>
+      <p class="muted">请联系检查管理员在后台点击「重新生成链接」，<br>扫码后即可继续整改。</p>
+      <button class="btn btn-ghost btn-block" onclick="location.href='/'" style="margin-top:12px">返回首页</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+const token = new URLSearchParams(location.search).get('token');
+let state = null;
+let localFiles = []; // 待提交 {file, localUrl}
+let tickTimer = null;
+
+async function init(){
+  if(!token){
+    showError('invalid', '链接缺少整改凭证，请确认扫描的是完整的整改二维码。');
+    return;
+  }
+  try{
+    const data = await Api.get('/api/staff/issue/' + encodeURIComponent(token));
+    state = data;
+    render();
+  }catch(e){
+    if(e.type === 'expired') showError('expired', e.message, e.data);
+    else if(e.type === 'invalid' || e.code === 404) showError('invalid', e.message);
+    else showError('error', e.message + '，请稍后刷新重试');
+  }
+}
+
+function showError(type, msg, extra){
+  $('#loadingBox').classList.add('hidden');
+  const tpl = $('#expiredTpl');
+  tpl.classList.remove('hidden');
+  $('#app').appendChild(tpl);
+  if(type === 'invalid'){ $('#errIcon').textContent='🚫'; $('#errTitle').textContent='链接无效'; }
+  if(type === 'error'){ $('#errIcon').textContent='😵'; $('#errTitle').textContent='加载失败'; }
+  $('#errMsg').textContent = msg;
+  if(extra && extra.expiresAt) $('#errMeta').textContent = '单号 ' + extra.issueNo + ' · 过期时间 ' + fmtFull(extra.expiresAt);
+}
+
+function render(){
+  $('#loadingBox').classList.add('hidden');
+  const tpl = $('#staffTpl');
+  tpl.classList.remove('hidden');
+  $('#app').appendChild(tpl);
+
+  $('[data-bind="no"]').textContent = '编号 ' + state.no;
+  $('[data-bind="title"]').textContent = state.title;
+  $('[data-bind="area"]').textContent = state.area;
+  const st = STATUS[state.status];
+  const stag = $('[data-bind="statusTag"]');
+  stag.textContent = st.text;
+  $('[data-bind="scoreText"]').textContent = state.score > 0 ? `扣 ${state.score} 分` : '不扣分';
+  $('[data-bind="description"]').textContent = state.description || '（管理员未填写详细说明）';
+  $('[data-bind="inspector"]').textContent = `检查人：${state.inspector} · 检查时间：${fmtFull(state.createdAt)} · 整改期限：${fmtFull(state.deadline)}`;
+
+  renderProblemPhotos();
+  renderRectifyPhotos();
+
+  // 驳回提示
+  if(state.rejectReason){
+    $('#rejectBox').classList.remove('hidden');
+    $('#rejectReason').textContent = state.rejectReason;
+  }
+
+  if(state.status === 'approved'){
+    $('#formArea').classList.add('hidden');
+    $('#approvedBox').classList.remove('hidden');
+    $('[data-bind="approvedAt"]').textContent = '核验通过时间：' + fmtFull(state.approvedAt);
+  } else {
+    $('#rectifier').value = state.rectifier || localStorage.getItem('rectifier') || '';
+    $('#note').value = state.rectifyNote || '';
+    // 已有整改图(待核验/被驳回): 展示已上传图，允许删除重拍
+  }
+
+  startCountdown();
+  bindEvents();
+}
+
+function renderProblemPhotos(){
+  const box = $('#problemPhotos');
+  box.innerHTML = state.problemImages.map(p =>
+    `<div class="photo"><img src="${p.url}" alt="问题照片" loading="lazy"></div>`).join('');
+}
+
+function renderRectifyPhotos(){
+  const box = $('#rectifyPhotos');
+  const serverImgs = state.rectifyImages.map((p, i) => `
+    <div class="photo">
+      <img src="${p.url}" alt="整改照片" loading="lazy">
+      <div class="del" data-del-server="${i}" title="删除">✕</div>
+      <div class="reup">已上传·可删</div>
+    </div>`).join('');
+  const localImgs = localFiles.map((f, i) => `
+    <div class="photo">
+      <img src="${f.localUrl}" alt="待上传">
+      <div class="del" data-del-local="${i}" title="移除">✕</div>
+      <div class="reup">待提交</div>
+    </div>`).join('');
+  const canAdd = state.rectifyImages.length + localFiles.length < 6 && state.status !== 'approved';
+  box.innerHTML = serverImgs + localImgs + (canAdd ? `
+    <label class="upload-box" id="addPhoto">
+      <span class="plus">+</span><span>拍照/相册</span>
+    </label>` : '');
+}
+
+function bindEvents(){
+  $('#rectifyPhotos').addEventListener('click', async (e) => {
+    const delS = e.target.getAttribute('data-del-server');
+    const delL = e.target.getAttribute('data-del-local');
+    if(delS !== null){
+      const ok = await confirmDialog('删除这张已上传的整改照片？删除后需重新上传。', { title: '删除图片' });
+      if(!ok) return;
+      const p = state.rectifyImages[Number(delS)];
+      try{
+        const data = await Api.post(`/api/staff/photo/delete/${token}`, { key: p.key });
+        state = data; localFiles = [];
+        renderRectifyPhotos();
+        Toast.show('图片已删除，可立即重新拍照上传', 'success');
+      }catch(err){ Toast.show(err.message, 'error'); }
+    }
+    if(delL !== null){
+      URL.revokeObjectURL(localFiles[delL].localUrl);
+      localFiles.splice(Number(delL), 1);
+      renderRectifyPhotos();
+      Toast.show('已移除，未上传不会保留', 'info');
+    }
+    if(e.target.closest('#addPhoto')) $('#fileInput').click();
+  });
+
+  $('#fileInput').addEventListener('change', () => {
+    const files = [...$('#fileInput').files];
+    $('#fileInput').value = '';
+    if(!files.length) return;
+    const bad = files.find(f => !f.type.startsWith('image/'));
+    if(bad){ Toast.show('仅支持图片文件，请重新选择', 'warn'); return; }
+    const big = files.find(f => f.size > 8 * 1024 * 1024);
+    if(big){ Toast.show('单张图片不能超过 8MB，请压缩后重选', 'warn'); return; }
+    if(state.rectifyImages.length + localFiles.length + files.length > 6){
+      Toast.show('整改照片最多 6 张，请先删除部分图片', 'warn'); return;
+    }
+    files.forEach(file => localFiles.push({ file, localUrl: URL.createObjectURL(file) }));
+    renderRectifyPhotos();
+    Toast.show(`已选择 ${files.length} 张，点击下方「提交整改」上传`, 'info');
+  });
+
+  $('#submitBtn').addEventListener('click', submitRectify);
+}
+
+async function submitRectify(){
+  const rectifier = $('#rectifier').value.trim();
+  if(!rectifier){ Toast.show('请先填写整改人姓名', 'warn'); $('#rectifier').focus(); return; }
+  const hadServer = state.rectifyImages.length > 0;
+  if(!localFiles.length && !hadServer){ Toast.show('请至少拍摄/选择 1 张整改后照片', 'warn'); return; }
+  if(!localFiles.length){
+    // 没新图，仅更新说明/姓名
+    let data;
+    try{
+      const fd = new FormData();
+      fd.append('rectifier', rectifier); fd.append('note', $('#note').value.trim());
+      data = await Api.upload(`/api/staff/upload/${token}`, fd);
+    }catch(e){ return Toast.show(e.message, 'error'); }
+    Toast.show('信息已更新，等待负责人核验', 'success');
+    state = data; localFiles = []; render();
+    return;
+  }
+  const btn = $('#submitBtn');
+  btn.disabled = true; btn.textContent = '上传中 0%…';
+  try{
+    const fd = new FormData();
+    localFiles.forEach(f => fd.append('photos', f.file));
+    fd.append('rectifier', rectifier);
+    fd.append('note', $('#note').value.trim());
+    // 被驳回后重新上传 = 替换旧图
+    if(state.rejectReason && hadServer) fd.append('replace', '1');
+    const xhr = new XMLHttpRequest();
+    const data = await new Promise((resolve, reject) => {
+      xhr.open('POST', `/api/staff/upload/${token}`);
+      xhr.upload.onprogress = ev => { if(ev.lengthComputable){
+        const pct = Math.round(ev.loaded / ev.total * 100);
+        btn.textContent = `上传中 ${pct}%…`;
+      }};
+      xhr.onload = () => { try{ const j = JSON.parse(xhr.responseText); j.code===0?resolve(j.data):reject(new Error(j.msg)); }catch(e){ reject(new Error('服务器响应异常，请重试')); } };
+      xhr.onerror = () => reject(new Error('网络中断，图片上传失败，请重试'));
+      xhr.send(fd);
+    });
+    localStorage.setItem('rectifier', rectifier);
+    state = data; localFiles = [];
+    Toast.show('整改照片提交成功，等待负责人核验', 'success', 3200);
+    render();
+  }catch(e){
+    Toast.show(e.message + '，图片未上传成功，请重新提交', 'error', 3200);
+  }finally{
+    btn.disabled = false; btn.textContent = '📤 提交整改，等待核验';
+  }
+}
+
+function startCountdown(){
+  const el = $('#countdown');
+  const update = () => {
+    const t = timeLeft(state.deadline);
+    el.textContent = (t.over ? '⏰ ' : '⏳ ') + t.text + `（整改截止 ${fmtTime(state.deadline)}）`;
+    el.classList.toggle('over', t.over);
+  };
+  update();
+  clearInterval(tickTimer);
+  tickTimer = setInterval(update, 30000);
+}
+
+init();
+</script>
+</body>
+</html>

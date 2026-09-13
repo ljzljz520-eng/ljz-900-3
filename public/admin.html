@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理后台 - 食堂后厨整改台</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="loginPage" class="login-wrap hidden">
+  <div class="login-card">
+    <div class="badge">📋</div>
+    <h2>管理员登录</h2>
+    <p class="sub">食堂后厨检查整改管理后台</p>
+    <div class="field">
+      <label>账号</label>
+      <input class="input" id="loginUser" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input class="input" id="loginPass" type="password" placeholder="admin123" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-block" id="loginBtn">登 录</button>
+    <p class="muted" style="text-align:center;margin-top:12px">默认账号 admin / admin123</p>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="mainPage" class="hidden">
+  <div class="topbar">
+    <span class="logo">🍳</span>
+    <h1>食堂后厨整改台</h1>
+    <span class="who" id="who"></span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff" id="logoutBtn">退出</button>
+  </div>
+
+  <div class="wrap">
+    <!-- 看板 -->
+    <div class="card">
+      <h2>📊 负责人汇总看板 <span class="en">Dashboard</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm btn-ghost" id="exportBtn">导出CSV</button>
+        <button class="btn btn-sm btn-ghost" id="refreshBtn">🔄 刷新</button>
+      </h2>
+      <div class="stats">
+        <div class="stat score"><div class="num" id="stScore">0</div><div class="lbl">累计扣分</div></div>
+        <div class="stat"><div class="num" id="stTotal">0</div><div class="lbl">问题总数</div></div>
+        <div class="stat done"><div class="num" id="stDone">0</div><div class="lbl">已完成</div></div>
+        <div class="stat wait"><div class="num" id="stSubmit">0</div><div class="lbl">待核验</div></div>
+      </div>
+      <div class="stats" style="grid-template-columns:1fr 1fr 2fr">
+        <div class="stat wait"><div class="num" id="stPending">0</div><div class="lbl">待整改</div></div>
+        <div class="stat over"><div class="num" id="stOver">0</div><div class="lbl">已超期</div></div>
+        <div class="stat" style="text-align:left;padding:14px 18px">
+          <div class="muted">整改完成率 <b id="rateText" style="color:var(--primary);font-size:15px">0%</b> · 提交率 <b id="submitRateText" style="color:#2f6fed;font-size:13px">0%</b></div>
+          <div class="progress-wrap"><div class="progress-bar" id="rateBar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div id="areaBars"></div>
+    </div>
+
+    <div class="card">
+      <h2>🏷️ 整改单列表
+        <span style="flex:1"></span>
+        <button class="btn btn-primary btn-sm" id="newBtn">+ 新建检查单</button>
+      </h2>
+      <div class="filters">
+        <div class="chip active" data-f="all">全部</div>
+        <div class="chip" data-f="pending">待整改</div>
+        <div class="chip" data-f="submitted">待核验</div>
+        <div class="chip" data-f="approved">已完成</div>
+        <div class="chip" data-f="overdue">已超期</div>
+        <select class="select" id="areaFilter" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="">全部区域</option>
+        </select>
+        <input class="input" id="kw" placeholder="搜编号/问题…" style="width:150px;padding:6px 10px;font-size:13px">
+      </div>
+      <div id="issueList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 新建检查单弹窗 -->
+<div class="mask" id="newMask">
+  <div class="modal">
+    <h3>📷 新建检查整改单</h3>
+    <p class="tip">拍摄灶台、冰箱、地面等问题部位，提交后自动生成编号与员工整改二维码。</p>
+    <div class="field">
+      <label>检查区域 <span class="req">*</span></label>
+      <select class="select" id="fArea"></select>
+    </div>
+    <div class="field">
+      <label>问题概述 <span class="req">*</span></label>
+      <input class="input" id="fTitle" placeholder="如：灶台积油明显、冰箱生熟混放" maxlength="40">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>扣分分值</label>
+        <input class="input" id="fScore" type="number" min="0" max="100" value="2">
+      </div>
+      <div class="field">
+        <label>整改期限（小时）</label>
+        <input class="input" id="fTTL" type="number" min="1" value="48">
+      </div>
+    </div>
+    <div class="field">
+      <label>详细说明</label>
+      <textarea class="textarea" id="fDesc" placeholder="位置、卫生问题、整改要求…" maxlength="200"></textarea>
+    </div>
+    <div class="field">
+      <label>问题照片 <span class="req">*</span>（最多 8 张，单张 ≤8MB）</label>
+      <div class="photos" id="newPhotos"></div>
+    </div>
+    <div class="row">
+      <button class="btn btn-ghost" id="newCancel">取消</button>
+      <button class="btn btn-primary" id="newSubmit">生成编号与二维码</button>
+    </div>
+    <input type="file" id="newFile" accept="image/jpeg,image/png,image/webp" multiple hidden>
+  </div>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="mask" id="detailMask">
+  <div class="modal" style="max-width:560px" id="detailBox"></div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let issues = [], filter = 'all', pendingPhotos = [];
+
+/* ---------- 登录 ---------- */
+function showLogin(){
+  $('#loginPage').classList.remove('hidden');
+  $('#mainPage').classList.add('hidden');
+}
+function showMain(){
+  $('#loginPage').classList.add('hidden');
+  $('#mainPage').classList.remove('hidden');
+  $('#who').textContent = Api.adminName;
+  loadAll();
+}
+$('#loginBtn').onclick = login;
+$('#loginPass').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
+async function login(){
+  const username = $('#loginUser').value.trim();
+  const password = $('#loginPass').value;
+  if(!username || !password){ Toast.show('请输入账号和密码','warn'); return; }
+  const btn = $('#loginBtn'); btn.disabled = true; btn.textContent = '登录中…';
+  try{
+    const d = await Api.post('/api/admin/login', { username, password });
+    Api.adminToken = d.token; Api.adminName = d.name;
+    localStorage.setItem('adminToken', d.token);
+    localStorage.setItem('adminName', d.name);
+    Toast.show('欢迎，' + d.name, 'success');
+    showMain();
+  }catch(e){ Toast.show(e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='登 录'; }
+}
+$('#logoutBtn').onclick = async () => {
+  await Api.post('/api/admin/logout', {}).catch(()=>{});
+  Api.clearAuth(); showLogin();
+};
+
+/* ---------- 初始化区域下拉 ---------- */
+function initAreaSelects(){
+  $('#fArea').innerHTML = AREAS.map(a => `<option>${a}</option>`).join('');
+  $('#areaFilter').innerHTML = '<option value="">全部区域</option>' + AREAS.map(a => `<option>${a}</option>`).join('');
+}
+
+/* ---------- 数据加载 ---------- */
+async function loadAll(){
+  await Promise.all([loadDashboard(), loadIssues()]);
+}
+async function loadDashboard(){
+  try{
+    const d = await Api.get('/api/admin/dashboard');
+    $('#stScore').textContent = d.totalScore;
+    $('#stTotal').textContent = d.total;
+    $('#stDone').textContent = d.approved;
+    $('#stSubmit').textContent = d.submitted;
+    $('#stPending').textContent = d.pending;
+    $('#stOver').textContent = d.overdue;
+    $('#rateText').textContent = d.completionRate + '%';
+    $('#submitRateText').textContent = d.submitRate + '%';
+    $('#rateBar').style.width = d.completionRate + '%';
+    const maxScore = Math.max(1, ...d.areas.map(a => a.score));
+    $('#areaBars').innerHTML = d.areas.length ? d.areas.map(a => `
+      <div class="area-row">
+        <span class="an">${escapeHtml(a.area)}</span>
+        <div class="track"><div class="fill" style="width:${a.score/maxScore*100}%"></div></div>
+        <span class="av">扣 ${a.score} 分 · ${a.approved}/${a.count} 完成</span>
+      </div>`).join('') : '<p class="muted" style="text-align:center;padding:8px">暂无数据，点击「新建检查单」开始检查</p>';
+  }catch(e){ /* 401 已统一处理 */ }
+}
+async function loadIssues(){
+  try{ issues = await Api.get('/api/admin/issues'); renderIssues(); }catch(e){}
+}
+
+/* ---------- 列表 ---------- */
+function renderIssues(){
+  const area = $('#areaFilter').value;
+  const kw = $('#kw').value.trim().toLowerCase();
+  let list = issues.filter(i =>
+    (filter === 'all' || i.status === filter) &&
+    (!area || i.area === area) &&
+    (!kw || i.no.toLowerCase().includes(kw) || i.title.toLowerCase().includes(kw) || (i.description||'').toLowerCase().includes(kw))
+  );
+  const box = $('#issueList');
+  if(!list.length){
+    box.innerHTML = `<div class="empty"><div class="icon">🧹</div><p>${issues.length ? '没有符合筛选条件的整改单' : '还没有检查记录，点击右上角「新建检查单」'}</p></div>`;
+    return;
+  }
+  box.innerHTML = list.map(i => {
+    const st = STATUS[i.status];
+    const tl = timeLeft(i.deadline);
+    return `<div class="issue" data-id="${i.id}">
+      <div class="head">
+        <span class="no-tag">${i.no}</span>
+        <span class="tag area-tag">${escapeHtml(i.area)}</span>
+        <span class="tag ${st.cls}">${st.text}</span>
+        <span style="flex:1"></span>
+        <span class="score-pill">${i.score>0?'-'+i.score+' 分':'不扣分'}</span>
+      </div>
+      <div class="title">${escapeHtml(i.title)}</div>
+      <div class="meta">${fmtTime(i.createdAt)} · ${escapeHtml(i.inspector)} ·
+        ${i.rectifyImages.length ? `整改人 ${escapeHtml(i.rectifier||'-')} · ` : ''}
+        <span style="${tl.over?'color:var(--danger);font-weight:600':''}">${tl.over?'⚠️ ':''}${tl.text}</span>
+      </div>
+      <div class="photos">
+        ${i.problemImages.slice(0,4).map(p=>`<div class="photo"><img src="${p.url}" alt="问题" loading="lazy"></div>`).join('')}
+        ${i.rectifyImages[0] ? `<div class="photo" style="outline:2px solid var(--success);outline-offset:-2px"><img src="${i.rectifyImages[0].url}" alt="整改" loading="lazy"><div class="reup" style="background:rgba(39,174,96,.85)">整改图×${i.rectifyImages.length}</div></div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn btn-sm" data-act="detail">详情 / 核验</button>
+        <button class="btn btn-sm" data-act="qr">📱 整改二维码</button>
+        ${i.status==='submitted' ? '<button class="btn btn-sm btn-primary" data-act="approve">通过</button>' : ''}
+        <button class="btn btn-sm btn-danger" data-act="del">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  box.querySelectorAll('.issue').forEach(card => {
+    const id = card.dataset.id;
+    card.querySelectorAll('[data-act]').forEach(btn => {
+      btn.onclick = e => { e.stopPropagation(); issueAction(id, btn.dataset.act); };
+    });
+    card.onclick = () => issueAction(id, 'detail');
+  });
+}
+
+async function issueAction(id, act){
+  const issue = issues.find(i => i.id === id);
+  if(act === 'detail') return openDetail(id);
+  if(act === 'qr') return openQR(id);
+  if(act === 'approve') return reviewIssue(id, 'approve');
+  if(act === 'del'){
+    const ok = await confirmDialog(`确认删除整改单 ${issue.no}？问题照片与整改照片将一并删除，且扫码链接立即失效。`, { title: '删除整改单', okText: '永久删除' });
+    if(!ok) return;
+    try{ await Api.del('/api/admin/issues/'+id); Toast.show('整改单已删除，相关链接已失效','success'); await loadAll(); }
+    catch(e){ Toast.show(e.message,'error'); }
+  }
+}
+
+/* ---------- 筛选 ---------- */
+$$('.chip').forEach(c => c.onclick = () => {
+  $$('.chip').forEach(x => x.classList.remove('active'));
+  c.classList.add('active'); filter = c.dataset.f; renderIssues();
+});
+$('#areaFilter').onchange = renderIssues;
+let kwTimer;
+$('#kw').oninput = () => { clearTimeout(kwTimer); kwTimer = setTimeout(renderIssues, 250); };
+$('#refreshBtn').onclick = async () => { await loadAll(); Toast.show('数据已刷新','success'); };
+
+/* ---------- 导出 CSV ---------- */
+$('#exportBtn').onclick = () => {
+  if(!issues.length){ Toast.show('暂无数据可导出','warn'); return; }
+  const head = ['编号','区域','问题','扣分','状态','检查人','检查时间','整改期限','整改人','整改图数','通过时间'];
+  const rows = issues.map(i => [i.no, i.area, i.title, i.score, STATUS[i.status].text, i.inspector,
+    fmtFull(i.createdAt), fmtFull(i.deadline), i.rectifier||'', i.rectifyImages.length, i.approvedAt?fmtFull(i.approvedAt):'']);
+  const csv = '﻿' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `后厨整改汇总_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  Toast.show('CSV 已导出','success');
+};
+
+/* ---------- 新建检查单 ---------- */
+$('#newBtn').onclick = () => {
+  pendingPhotos = [];
+  $('#fTitle').value=''; $('#fDesc').value=''; $('#fScore').value=2; $('#fTTL').value=48;
+  renderNewPhotos();
+  $('#newMask').classList.add('show');
+};
+$('#newCancel').onclick = () => { if(pendingPhotos.length){ /* 孤儿文件，服务端无引用不影响 */ } $('#newMask').classList.remove('show'); };
+$('#newMask').addEventListener('click', e => { if(e.target.id==='newMask') $('#newMask').classList.remove('show'); });
+
+function renderNewPhotos(){
+  $('#newPhotos').innerHTML = pendingPhotos.map((p,i) => `
+    <div class="photo">
+      <img src="${p.localUrl}" alt="待上传">
+      <div class="del" data-rm="${i}">✕</div>
+    </div>`).join('') + (pendingPhotos.length < 8 ?
+    `<label class="upload-box"><span class="plus">+</span><span>拍照上传</span></label>`:'');
+}
+$('#newPhotos').onclick = e => {
+  const rm = e.target.getAttribute('data-rm');
+  if(rm !== null){
+    pendingPhotos.splice(Number(rm),1); renderNewPhotos();
+    Toast.show('已移除该照片（不会保存）','info',1500);
+  }
+  else if(e.target.closest('.upload-box')) $('#newFile').click();
+};
+$('#newFile').onchange = () => {
+  const files = [...$('#newFile').files]; $('#newFile').value='';
+  if(!files.length) return;
+  if(files.some(f => !f.type.startsWith('image/'))){ Toast.show('仅支持 JPG/PNG/WEBP 图片，请重新选择','warn'); return; }
+  if(files.some(f => f.size > 8*1024*1024)){ Toast.show('单张图片不能超过 8MB，请压缩后重新上传','warn'); return; }
+  if(pendingPhotos.length + files.length > 8){ Toast.show('最多上传 8 张问题照片，请先删除部分图片','warn'); return; }
+  files.forEach(file => pendingPhotos.push({ file, localUrl: URL.createObjectURL(file) }));
+  renderNewPhotos();
+  Toast.show(`已添加 ${files.length} 张照片`,'success',1500);
+};
+
+$('#newSubmit').onclick = async () => {
+  const area = $('#fArea').value;
+  const title = $('#fTitle').value.trim();
+  if(!title){ Toast.show('请填写问题概述','warn'); $('#fTitle').focus(); return; }
+  if(!pendingPhotos.length){ Toast.show('请至少上传 1 张问题照片再提交','warn'); return; }
+  const btn = $('#newSubmit'); btn.disabled = true; btn.textContent = '正在上传照片…';
+  try{
+    // 1. 传图
+    const fd = new FormData();
+    pendingPhotos.forEach(p => fd.append('photos', p.file));
+    const photos = await uploadWithProgress(fd, btn);
+    // 2. 建单
+    btn.textContent = '正在生成编号…';
+    const issue = await Api.post('/api/admin/issues', {
+      area, title,
+      description: $('#fDesc').value.trim(),
+      score: Number($('#fScore').value) || 0,
+      deadlineHours: Number($('#fTTL').value) || 48,
+      problemImages: photos
+    });
+    pendingPhotos = [];
+    $('#newMask').classList.remove('show');
+    Toast.show(`${issue.no} 已创建，二维码可张贴给员工扫码整改`, 'success', 3200);
+    await loadAll();
+    openQR(issue.id);
+  }catch(e){
+    Toast.show(e.message || '创建失败，请重新上传照片','error',3200);
+  }finally{
+    btn.disabled=false; btn.textContent='生成编号与二维码';
+  }
+};
+
+function uploadWithProgress(fd, btn){
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/admin/upload');
+    xhr.setRequestHeader('X-Admin-Token', Api.adminToken);
+    xhr.upload.onprogress = ev => { if(ev.lengthComputable && btn) btn.textContent = `上传照片 ${Math.round(ev.loaded/ev.total*100)}%…`; };
+    xhr.onload = () => { try{ const j = JSON.parse(xhr.responseText); j.code===0?resolve(j.data):reject(new Error(j.msg||'图片上传失败，请重试')); }catch(e){ reject(new Error('图片上传失败，请重新选择图片')); } };
+    xhr.onerror = () => reject(new Error('网络中断，图片上传失败，请重新上传'));
+    xhr.send(fd);
+  });
+}
+
+/* ---------- 二维码 ---------- */
+async function openQR(id){
+  let qr;
+  try{ qr = await Api.get(`/api/admin/issues/${id}/qrcode`); }
+  catch(e){ return Toast.show(e.message,'error'); }
+  const mask = document.createElement('div');
+  mask.className = 'mask show';
+  mask.innerHTML = `<div class="modal qr-box">
+    <h3 style="justify-content:center">📱 员工整改二维码</h3>
+    <p class="tip" style="text-align:center">编号 ${qr.no} · 后厨员工微信扫码即可上传整改照片</p>
+    <img src="${qr.qr}" alt="二维码">
+    <div class="qr-url">${qr.url}</div>
+    <p class="muted">链接有效期至 ${fmtFull(qr.expiresAt)}，过期后扫码会提示联系管理员</p>
+    <div class="row">
+      <a class="btn btn-ghost" href="${qr.url}" target="_blank">打开整改页</a>
+      <button class="btn btn-primary" data-close>完成</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mask);
+  mask.addEventListener('click', e => { if(e.target === mask || e.target.hasAttribute('data-close')) mask.remove(); });
+}
+
+/* ---------- 详情/核验 ---------- */
+async function openDetail(id){
+  let issue;
+  try{ issue = await Api.get('/api/admin/issues/' + id); }
+  catch(e){ return Toast.show(e.message,'error'); }
+  const st = STATUS[issue.status], tl = timeLeft(issue.deadline);
+  const mask = $('#detailMask');
+  $('#detailBox').innerHTML = `
+    <h3>${escapeHtml(issue.title)}
+      <span style="flex:1"></span><span style="cursor:pointer;color:#9ca3af" data-close>✕</span>
+    </h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <span class="no-tag">${issue.no}</span>
+      <span class="tag area-tag">${escapeHtml(issue.area)}</span>
+      <span class="tag ${st.cls}">${st.text}</span>
+      <span class="score-pill">${issue.score>0?'-'+issue.score+' 分':'不扣分'}</span>
+    </div>
+    <p class="muted">检查人 ${escapeHtml(issue.inspector)} · ${fmtFull(issue.createdAt)} ·
+      <span style="${tl.over?'color:var(--danger);font-weight:600':''}">${tl.text}</span> · 截止 ${fmtFull(issue.deadline)}</p>
+    ${issue.description ? `<div class="desc">${escapeHtml(issue.description)}</div>`:''}
+    ${issue.rejectReason ? `<div class="reject-box"><b>驳回理由：</b>${escapeHtml(issue.rejectReason)}</div>`:''}
+
+    <div class="section-label">问题照片（${issue.problemImages.length}）</div>
+    <div class="photos" id="dProblem">${photoGrid(issue.problemImages, 'problem', issue.id)}</div>
+    <button class="btn btn-sm btn-ghost" id="addProblemBtn">➕ 补传问题照片</button>
+    <input type="file" id="dProblemFile" accept="image/*" multiple hidden>
+
+    <div class="section-label">整改照片（${issue.rectifyImages.length}）${issue.rectifier?` · 整改人 ${escapeHtml(issue.rectifier)}`:''}</div>
+    ${issue.rectifyImages.length ? `<div class="photos" id="dRectify">${photoGrid(issue.rectifyImages, 'rectify', issue.id)}</div>`
+      : '<p class="muted">员工尚未提交整改照片</p>'}
+    ${issue.rectifyNote ? `<div class="desc">📝 ${escapeHtml(issue.rectifyNote)}</div>`:''}
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+      ${issue.rectifyImages.length && !issue.approvedAt ? '<button class="btn btn-primary" data-review="approve">✅ 核验通过</button><button class="btn" style="background:var(--warn-light);color:var(--warn)" data-review="reject">↩️ 驳回重改</button>' : ''}
+      <button class="btn btn-ghost" data-relink>🔗 重新生成链接</button>
+      <button class="btn" data-qr>📱 二维码</button>
+      <button class="btn btn-danger" data-delissue>删除整单</button>
+    </div>
+    <input type="file" id="dRectFile" hidden>
+  `;
+  mask.classList.add('show');
+
+  mask.onclick = async e => {
+    if(e.target === mask || e.target.hasAttribute('data-close')) return mask.classList.remove('show');
+    // 删除图片
+    const delP = e.target.getAttribute('data-delp'), delR = e.target.getAttribute('data-delr');
+    if(delP || delR){
+      const key = delP || delR, type = delR ? 'rectify' : 'problem';
+      const ok = await confirmDialog('确认删除这张图片？删除后无法恢复。', { title: '删除图片' });
+      if(!ok) return;
+      try{
+        const d = await Api.post(`/api/admin/issues/${issue.id}/photos/delete`, { key, type });
+        Toast.show('图片已删除' + (type==='problem' && d.problemImages.length===0 ? '，问题照片已为空，请及时补传':'') ,'success');
+        mask.classList.remove('show');
+        await loadAll(); openDetail(issue.id);
+      }catch(err){ Toast.show(err.message,'error'); }
+    }
+    if(e.target.id === 'addProblemBtn') $('#dProblemFile').click();
+    const review = e.target.getAttribute('data-review');
+    if(review === 'approve'){ await reviewIssue(issue.id,'approve'); mask.classList.remove('show'); }
+    if(review === 'reject'){
+      const reason = prompt('请填写驳回理由（员工扫码页会看到）：','整改不到位，请重新处理');
+      if(reason === null) return;
+      try{ await Api.post(`/api/admin/issues/${issue.id}/review`, { action:'reject', reason });
+        Toast.show('已驳回，员工可重新上传整改图','warn'); mask.classList.remove('show'); await loadAll();
+      }catch(err){ Toast.show(err.message,'error'); }
+    }
+    if(e.target.hasAttribute('data-relink')){
+      const ok = await confirmDialog('重新生成后，旧扫码链接立即失效（员工再扫旧码会提示过期），确认继续？', { title: '重新生成链接', danger:false, okText:'生成新链接' });
+      if(!ok) return;
+      try{ await Api.post(`/api/admin/issues/${issue.id}/relink`, { ttlHours: 48 });
+        Toast.show('新链接已生成，旧链接已失效，请重新张贴二维码','success');
+        mask.classList.remove('show'); await loadAll(); openQR(issue.id);
+      }catch(err){ Toast.show(err.message,'error'); }
+    }
+    if(e.target.hasAttribute('data-qr')) openQR(issue.id);
+    if(e.target.hasAttribute('data-delissue')){
+      mask.classList.remove('show'); issueAction(issue.id,'del');
+    }
+  };
+
+  $('#dProblemFile').onchange = async () => {
+    const files = [...$('#dProblemFile').files]; $('#dProblemFile').value='';
+    if(!files.length) return;
+    if(files.some(f => f.size > 8*1024*1024)){ Toast.show('单张图片不能超过 8MB','warn'); return; }
+    const fd = new FormData();
+    files.forEach(f => fd.append('photos', f));
+    try{
+      Toast.show('正在重新上传…','info');
+      const xhr = await adminUpload(`/api/admin/issues/${issue.id}/photos`, fd);
+      Toast.show(`已补传 ${files.length} 张问题照片`,'success');
+      mask.classList.remove('show'); await loadAll(); openDetail(issue.id);
+    }catch(err){ Toast.show(err.message,'error'); }
+  };
+}
+
+function adminUpload(url, fd){
+  return new Promise((resolve,reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('X-Admin-Token', Api.adminToken);
+    xhr.onload = () => { try{ const j=JSON.parse(xhr.responseText); j.code===0?resolve(j.data):reject(new Error(j.msg)); }catch(e){ reject(new Error('上传失败，请重试')); } };
+    xhr.onerror = () => reject(new Error('网络异常，上传失败，请重新上传'));
+    xhr.send(fd);
+  });
+}
+
+function photoGrid(photos, type, id){
+  if(!photos.length) return '';
+  return photos.map(p => `
+    <div class="photo">
+      <img src="${p.url}" alt="照片" loading="lazy">
+      <div class="del" data-del${type==='problem'?'p':'r'}="${p.key}" title="删除图片">✕</div>
+    </div>`).join('');
+}
+
+async function reviewIssue(id, action){
+  try{
+    await Api.post(`/api/admin/issues/${id}/review`, { action });
+    Toast.show('已核验通过，整改闭环完成 ✅','success');
+    await loadAll();
+  }catch(e){ Toast.show(e.message,'error'); }
+}
+
+/* ---------- 启动 ---------- */
+initAreaSelects();
+if(Api.adminToken){
+  // 校验 token 是否仍有效
+  Api.get('/api/admin/issues').then(showMain).catch(() => showLogin());
+}else{
+  showLogin();
+}
+</script>
+</body>
+</html>
