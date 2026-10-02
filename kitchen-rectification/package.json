@@ -1,0 +1,16 @@
+{
+  "name": "kitchen-rectification",
+  "version": "1.0.0",
+  "description": "食堂后厨整改台 - 问题拍照编号、扫码整改、负责人汇总看板",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "multer": "1.4.5-lts.2",
+    "pngjs": "5.0.0",
+    "qrcode": "1.5.4"
+  }
+}
