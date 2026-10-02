@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>负责人汇总 · 食堂后厨整改台</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="back" href="/">‹ 首页</a>
+  <h1>负责人汇总页</h1>
+  <span class="sub" id="clock"></span>
+</div>
+<div class="wrap wide">
+  <div class="stat-grid" id="stats"></div>
+
+  <div class="card">
+    <h2>区域扣分与完成率</h2>
+    <div id="areaBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>整改明细</h2>
+    <div class="filters" id="filters">
+      <button data-s="" class="on">全部</button>
+      <button data-s="pending">待整改</button>
+      <button data-s="fixed">待验收</button>
+      <button data-s="approved">已通过</button>
+      <button data-s="rejected">已驳回</button>
+      <button data-s="expired">已过期</button>
+    </div>
+    <div id="issueList"></div>
+  </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/dashboard.js"></script>
+</body>
+</html>

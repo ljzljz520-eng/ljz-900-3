@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>管理员检查台 · 食堂后厨整改台</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="back" href="/">‹ 首页</a>
+  <h1>管理员检查台</h1>
+</div>
+<div class="wrap">
+
+  <div class="card">
+    <h2>发现问题 · 登记建单</h2>
+    <form id="createForm">
+      <div class="row">
+        <label class="fld">
+          <span>检查区域 *</span>
+          <select name="area" required>
+            <option value="">请选择</option>
+            <option>灶台</option><option>冰箱</option><option>地面</option>
+            <option>排烟罩</option><option>储物架</option><option>洗菜池</option>
+            <option>其他</option>
+          </select>
+        </label>
+        <label class="fld">
+          <span>问题类别 *</span>
+          <select name="category" required>
+            <option value="">请选择</option>
+            <option>油污积垢</option><option>积尘杂物</option>
+            <option>食材过期/不新鲜</option><option>摆放杂乱</option>
+            <option>设备损坏</option><option>卫生死角</option><option>其他</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="fld">
+          <span>扣分分值</span>
+          <input type="number" name="points" value="5" min="0" max="100" step="1">
+        </label>
+        <label class="fld">
+          <span>整改期限（小时）</span>
+          <input type="number" name="hours" value="24" min="0.5" max="720" step="0.5">
+        </label>
+      </div>
+      <label class="fld">
+        <span>问题描述</span>
+        <textarea name="description" placeholder="例：灶台下方地面有明显油污，存在滑倒隐患"></textarea>
+      </label>
+
+      <label class="fld">
+        <span>问题照片 *（最多 9 张，单张 ≤ 10MB）</span>
+        <div class="uploader" id="createUploader"></div>
+      </label>
+
+      <button class="btn block" type="submit" id="submitBtn">提交检查问题，生成编号</button>
+    </form>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h2>建单成功</h2>
+    <div class="qr-box">
+      <div style="font-size:13px;color:#8a909a">整改单编号</div>
+      <div id="qrCode" style="font-size:20px;font-weight:800;letter-spacing:1px;margin:4px 0"></div>
+      <img id="qrImg" alt="整改二维码" style="display:inline">
+      <div class="muted" style="margin:8px 0 14px">员工用微信/支付宝扫码即可上传整改照片</div>
+      <div class="row">
+        <button class="btn ghost" type="button" id="printBtn">🖨 打印整改码</button>
+        <a class="btn" id="openFixLink">打开整改页</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>整改单列表</h2>
+    <div class="filters" id="filters">
+      <button data-s="" class="on">全部</button>
+      <button data-s="pending">待整改</button>
+      <button data-s="fixed">待验收</button>
+      <button data-s="approved">已通过</button>
+      <button data-s="rejected">已驳回</button>
+      <button data-s="expired">已过期</button>
+    </div>
+    <div id="issueList"></div>
+  </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

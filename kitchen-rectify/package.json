@@ -1,0 +1,17 @@
+{
+  "name": "kitchen-rectify",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "食堂后厨整改台",
+  "dependencies": {
+    "express": "^5.2.1",
+    "multer": "^2.4.0",
+    "qrcode": "^1.5.4"
+  }
+}
